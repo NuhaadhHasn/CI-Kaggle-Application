@@ -11,6 +11,23 @@ import datetime
 import random
 from streamlit_js_eval import get_geolocation
 
+# Guard against decompression-bomb / oversized uploads. The model only ever
+# uses a 224x224 crop, so we cap how large an image we are willing to decode.
+Image.MAX_IMAGE_PIXELS = 64_000_000  # ~64 MP
+
+
+def safe_open_image(file):
+    """Open an uploaded/camera image as RGB, rejecting oversized or corrupt files."""
+    try:
+        img = Image.open(file)
+        img.load()  # force decode now so bombs/corruption fail here
+        return img.convert("RGB")
+    except Image.DecompressionBombError:
+        st.error("Image is too large to process safely. Please use a smaller photo.")
+    except Exception as e:
+        st.error(f"Could not read image: {e}")
+    return None
+
 # 1. PAGE CONFIG
 st.set_page_config(page_title="Live Analysis", page_icon="🔮", layout="wide")
 
@@ -129,11 +146,11 @@ with col1:
     if input_mode == "📂 File Upload":
         uploaded_file = st.file_uploader("Drop Field Sample Here", type=["jpg", "png", "jpeg"])
         if uploaded_file:
-            image = Image.open(uploaded_file).convert("RGB")
+            image = safe_open_image(uploaded_file)
     else:
         camera_file = st.camera_input("Take Field Photo")
         if camera_file:
-            image = Image.open(camera_file).convert("RGB")
+            image = safe_open_image(camera_file)
 
     if image is not None:
         # Reset any stale result when the source image changes, so the displayed
