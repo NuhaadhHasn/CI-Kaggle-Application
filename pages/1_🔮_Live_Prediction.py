@@ -67,27 +67,31 @@ if 'result_data' not in st.session_state:
 # 4. MODEL LOADER
 @st.cache_resource
 def get_model():
+    model_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'biomass_model.keras'))
+    if not os.path.exists(model_path):
+        return None
     try:
         tf.keras.backend.clear_session()
-        base_model = EfficientNetB0(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
-        base_model.trainable = False
-        model = models.Sequential([
-            base_model,
-            layers.GlobalAveragePooling2D(),
-            layers.Dense(128, activation='relu'),
-            layers.Dropout(0.3),
-            layers.Dense(1, activation='linear')
-        ])
-        model_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'biomass_model.keras'))
-        if os.path.exists(model_path):
-            try:
-                model = tf.keras.models.load_model(model_path, compile=False)
-            except:
-                model.load_weights(model_path)
-        else:
-            return None
-        return model
-    except:
+        # Load the trained model directly. Only rebuild the EfficientNet-B0
+        # architecture (which downloads ImageNet weights) as a fallback if the
+        # saved file turns out to hold weights rather than a full model.
+        try:
+            return tf.keras.models.load_model(model_path, compile=False)
+        except Exception as load_err:
+            st.sidebar.warning(f"Full-model load failed, rebuilding architecture: {load_err}")
+            base_model = EfficientNetB0(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
+            base_model.trainable = False
+            model = models.Sequential([
+                base_model,
+                layers.GlobalAveragePooling2D(),
+                layers.Dense(128, activation='relu'),
+                layers.Dropout(0.3),
+                layers.Dense(1, activation='linear')
+            ])
+            model.load_weights(model_path)
+            return model
+    except Exception as e:
+        st.sidebar.error(f"Model load error: {e}")
         return None
 
 
@@ -120,16 +124,27 @@ with col1:
     st.info("Step 1: Acquire Imagery")
 
     image = None
+    uploaded_file = None
+    camera_file = None
     if input_mode == "📂 File Upload":
         uploaded_file = st.file_uploader("Drop Field Sample Here", type=["jpg", "png", "jpeg"])
         if uploaded_file:
-            image = Image.open(uploaded_file)
+            image = Image.open(uploaded_file).convert("RGB")
     else:
         camera_file = st.camera_input("Take Field Photo")
         if camera_file:
-            image = Image.open(camera_file)
+            image = Image.open(camera_file).convert("RGB")
 
-    if image:
+    if image is not None:
+        # Reset any stale result when the source image changes, so the displayed
+        # numbers always correspond to the currently loaded image.
+        src = uploaded_file or camera_file
+        img_sig = getattr(src, "file_id", None) or getattr(src, "name", None) or id(image)
+        if st.session_state.get("img_sig") != img_sig:
+            st.session_state["img_sig"] = img_sig
+            st.session_state["scan_complete"] = False
+            st.session_state["result_data"] = {}
+
         st.image(image, caption="Source Imagery", use_container_width=True)
 
         # Spectral Analysis
@@ -158,12 +173,16 @@ with col2:
                 # Preprocessing
                 status.write("Processing Tensor Data...")
                 img_resized = image.resize((224, 224))
-                img_array = np.array(img_resized).astype(np.float32) / 255.0
+                # NOTE: Keras EfficientNet-B0 includes its own preprocessing /
+                # normalization layer and expects raw [0, 255] float inputs.
+                # Do NOT divide by 255 here. If your training pipeline fed 0-1
+                # scaled inputs instead, revert this line to `/ 255.0`.
+                img_array = np.array(img_resized).astype(np.float32)
                 img_array = np.expand_dims(img_array, axis=0)
 
-                # Inference
+                # Inference (direct call is faster than .predict() for one image)
                 start_time = time.time()
-                prediction = model.predict(img_array)
+                prediction = model(img_array, training=False).numpy()
                 end_time = time.time()
 
                 # Update Memory
@@ -187,7 +206,7 @@ with col2:
             with st.container():
                 r1, r2, r3 = st.columns(3)
                 r1.metric("Biomass Density", f"{data['biomass']:.2f} g")
-                r2.metric("Signal Quality", f"{data['confidence']:.1f}%")
+                r2.metric("Signal Quality (demo)", f"{data['confidence']:.1f}%")
                 r3.metric("Latency", f"{data['latency']:.0f}ms")
 
                 st.divider()

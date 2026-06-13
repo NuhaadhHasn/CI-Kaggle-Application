@@ -28,6 +28,10 @@ st.caption("Deep Learning Computer Vision System | EfficientNet-B0 Backbone")
 
 st.markdown("---")
 
+st.info("ℹ️ The headline metrics and server logs on this page are illustrative "
+        "placeholders for presentation. Real model inference runs on the "
+        "**🔮 Live Prediction** page.")
+
 # Top Metrics Row
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("Model Accuracy", "92.4%", "+1.2%")
@@ -48,7 +52,7 @@ with col1:
     """)
 
     # Fake Server Logs (Looks very professional)
-    st.markdown("### 📟 Live Server Logs")
+    st.markdown("### 📟 Sample Server Logs *(illustrative)*")
     log_text = ""
     events = [
         "[INFO] Weights loaded from biomass_model.keras",

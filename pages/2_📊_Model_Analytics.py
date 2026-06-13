@@ -7,6 +7,9 @@ st.set_page_config(page_title="Model Analytics", page_icon="📊", layout="wide"
 st.title("📊 Architecture & Performance Metrics")
 st.markdown("Detailed technical evaluation of the EfficientNet regression model.")
 
+st.info("ℹ️ The training curves and error metrics on this page are illustrative "
+        "figures from the development run, hard-coded for presentation purposes.")
+
 # Tabbed Interface for cleaner look
 tab1, tab2, tab3 = st.tabs(["🧠 Model Architecture", "📈 Training Performance", "🔬 Confusion Matrix"])
 
