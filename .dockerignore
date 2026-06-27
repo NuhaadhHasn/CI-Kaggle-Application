@@ -1,0 +1,30 @@
+# Keep the build context small and reproducible.
+# NOTE: biomass_model.keras and *.jpg are intentionally NOT ignored — the app needs them.
+
+# Virtual environments
+venvPython/
+venv/
+.venv/
+env/
+ENV/
+
+# Version control & IDE
+.git/
+.gitignore
+.idea/
+.vscode/
+
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Docker / OS / logs
+Dockerfile
+.dockerignore
+*.log
+.DS_Store
+Thumbs.db

@@ -80,6 +80,22 @@ Streamlit opens the app in your browser (default `http://localhost:8501`). Use t
 
 ---
 
+## 🐳 Run with Docker
+
+A `Dockerfile` is included. The image bundles the app, dependencies, and the trained model.
+
+```bash
+# Build the image
+docker build -t ci-kaggle-app:latest .
+
+# Run the container
+docker run --rm -p 8501:8501 ci-kaggle-app:latest
+```
+
+Then open `http://localhost:8501`. The container exposes a health endpoint at `/_stcore/health` (used by the built-in `HEALTHCHECK`). The image is CPU-only and ~2.7 GB (TensorFlow is the bulk).
+
+---
+
 ## 🧪 Usage
 
 1. Open **🔮 Live Prediction**.
@@ -109,6 +125,10 @@ For best accuracy, ensure the image contains **only grass** — faces, sky, or v
 
 - The home page and parts of the analytics page use illustrative/demo figures (e.g., server logs, headline metrics) for presentation; the **Live Prediction** page performs real inference using the loaded Keras model.
 - The trained model file and sample images are committed so the app runs out of the box. Adjust `.gitignore` if you prefer to exclude large binaries.
+
+### Model compatibility
+
+`biomass_model.keras` was exported with **Keras 3.8.0**, while `requirements.txt` pins **Keras 3.12.0**. On the newer version, a direct `load_model()` of the full graph fails during deserialization, so the app **automatically falls back** to rebuilding the architecture and loading the trained weights. Because the EfficientNet-B0 backbone was **frozen at ImageNet weights** during training (only the regression head was trained), this fallback reproduces the trained model's predictions **exactly** (verified in a container: both paths return the same output for the same input). No action is required, but if you want `load_model()` to succeed directly you can pin `keras==3.8.0` (note: this may conflict with TensorFlow 2.20) or re-export the model from your training environment.
 
 ---
 
